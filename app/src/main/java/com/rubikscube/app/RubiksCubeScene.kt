@@ -223,8 +223,8 @@ class RubiksCubeScene(private val cubeState: RubiksCubeState) {
         sceneView.cameraManipulator = Manipulator.Builder()
             .targetPosition(0f, 0f, 0f)
             .viewport(maxOf(sceneView.width, 1), maxOf(sceneView.height, 1))
-            .orbitHomePosition(0.28f, 0.22f, 0.40f)
-            .zoomSpeed(0.004f)
+            .orbitHomePosition(0.65f, 0.50f, 0.85f)
+            .zoomSpeed(0f)
             .build(Manipulator.Mode.ORBIT)
     }
 
