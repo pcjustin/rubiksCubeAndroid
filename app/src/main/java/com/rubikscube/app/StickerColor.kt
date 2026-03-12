@@ -12,9 +12,9 @@ enum class StickerColor(
     val androidColor: Int
 ) {
     WHITE("白色", Color.WHITE),
-    YELLOW("黃色", Color.parseColor("#FFD700")),
+    YELLOW("黃色", Color.parseColor("#FFEA00")),
     RED("紅色", Color.parseColor("#CC0000")),
-    ORANGE("橙色", Color.parseColor("#FF8C00")),
+    ORANGE("橙色", Color.parseColor("#E65100")),
     BLUE("藍色", Color.parseColor("#0044CC")),
     GREEN("綠色", Color.parseColor("#009900")),
     UNSET("未設定", Color.parseColor("#808080"));
