@@ -1,6 +1,10 @@
 package com.rubikscube.app
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.graphics.Color
+import android.view.animation.LinearInterpolator
 import com.google.android.filament.MaterialInstance
 import com.google.android.filament.utils.Manipulator
 import dev.romainguy.kotlin.math.Float3
@@ -49,6 +53,7 @@ class RubiksCubeScene(private val cubeState: RubiksCubeState) {
 
     private val stickerNodes = arrayOfNulls<CubeNode>(54)
     private val colorMaterials = HashMap<StickerColor, MaterialInstance>()
+    private var activeAnimator: ValueAnimator? = null
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -128,6 +133,88 @@ class RubiksCubeScene(private val cubeState: RubiksCubeState) {
         }
     }
 
+    fun syncWithState(engine: com.google.android.filament.Engine) {
+        val rm = engine.renderableManager
+        for (idx in 0 until 54) {
+            val node = stickerNodes[idx] ?: continue
+            val (face, row, col) = cubeState.indexToFaceRowCol(idx)
+            val color = cubeState.getSticker(face, row, col)
+            val mat = colorMaterials[color] ?: continue
+            val ri = rm.getInstance(node.entity)
+            if (ri != 0) {
+                rm.setMaterialInstanceAt(ri, 0, mat)
+            }
+            val (position, quaternion) = stickerTransform(face, row, col)
+            node.position = position
+            node.quaternion = quaternion
+        }
+    }
+
+    fun animateMove(
+        sceneView: SceneView,
+        move: String,
+        durationMs: Long = 280L,
+        onFinished: () -> Unit
+    ) {
+        activeAnimator?.cancel()
+        val parsed = RubiksCubeState.parseMove(move)
+        if (parsed == null) {
+            onFinished()
+            return
+        }
+
+        val rotating = mutableListOf<AnimatedSticker>()
+        for (idx in 0 until 54) {
+            val (face, row, col) = cubeState.indexToFaceRowCol(idx)
+            val vector = stickerVector(face, row, col)
+            if (isOnMoveLayer(vector, parsed.face)) {
+                val node = stickerNodes[idx] ?: continue
+                rotating += AnimatedSticker(node, node.position, node.quaternion)
+            }
+        }
+
+        if (rotating.isEmpty()) {
+            cubeState.applyMove(move)
+            syncWithState(sceneView.engine)
+            onFinished()
+            return
+        }
+
+        val axis = rotationAxis(parsed.face)
+        val totalAngle = rotationAngleDegrees(move)
+
+        activeAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = durationMs
+            interpolator = LinearInterpolator()
+            addUpdateListener { animator ->
+                val fraction = animator.animatedFraction
+                val stepRotation = axisAngle(axis.x, axis.y, axis.z, totalAngle * fraction)
+                for (item in rotating) {
+                    item.node.position = rotatePoint(item.startPosition, axis, totalAngle * fraction)
+                    item.node.quaternion = normalizedLerp(item.startQuaternion, multiply(stepRotation, item.startQuaternion), fraction)
+                }
+            }
+            var wasCanceled = false
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    activeAnimator = null
+                    if (!wasCanceled) {
+                        cubeState.applyMove(move)
+                        syncWithState(sceneView.engine)
+                        onFinished()
+                    }
+                }
+
+                override fun onAnimationCancel(animation: Animator) {
+                    wasCanceled = true
+                    activeAnimator = null
+                    syncWithState(sceneView.engine)
+                }
+            })
+            start()
+        }
+    }
+
     // ── Camera setup ──────────────────────────────────────────────────────────
 
     private fun setupCamera(sceneView: SceneView) {
@@ -201,4 +288,98 @@ class RubiksCubeScene(private val cubeState: RubiksCubeState) {
         val c   = cos(rad / 2f)
         return Quaternion(ax * s, ay * s, az * s, c)
     }
+
+    private fun rotationAxis(face: Int): Float3 =
+        when (face) {
+            FACE_U -> Float3(0f, 1f, 0f)
+            FACE_R -> Float3(1f, 0f, 0f)
+            FACE_F -> Float3(0f, 0f, 1f)
+            FACE_D -> Float3(0f, -1f, 0f)
+            FACE_L -> Float3(-1f, 0f, 0f)
+            FACE_B -> Float3(0f, 0f, -1f)
+            else -> Float3(0f, 0f, 1f)
+        }
+
+    private fun rotationAngleDegrees(move: String): Float {
+        val base = if (move.endsWith("'")) 90f else -90f
+        return if (move.endsWith("2")) 180f else base
+    }
+
+    private fun isOnMoveLayer(vector: StickerVector, face: Int): Boolean =
+        when (face) {
+            FACE_U -> vector.y == 1
+            FACE_R -> vector.x == 1
+            FACE_F -> vector.z == 1
+            FACE_D -> vector.y == -1
+            FACE_L -> vector.x == -1
+            FACE_B -> vector.z == -1
+            else -> false
+        }
+
+    private fun stickerVector(face: Int, row: Int, col: Int): StickerVector =
+        when (face) {
+            FACE_U -> StickerVector(col - 1, 1, row - 1)
+            FACE_R -> StickerVector(1, 1 - row, 1 - col)
+            FACE_F -> StickerVector(col - 1, 1 - row, 1)
+            FACE_D -> StickerVector(col - 1, -1, 1 - row)
+            FACE_L -> StickerVector(-1, 1 - row, col - 1)
+            FACE_B -> StickerVector(1 - col, 1 - row, -1)
+            else -> StickerVector(0, 0, 0)
+        }
+
+    private fun rotatePoint(point: Float3, axis: Float3, angleDeg: Float): Float3 {
+        val q = axisAngle(axis.x, axis.y, axis.z, angleDeg)
+        return rotate(point, q)
+    }
+
+    private fun rotate(point: Float3, rotation: Quaternion): Float3 {
+        val x = rotation.x
+        val y = rotation.y
+        val z = rotation.z
+        val w = rotation.w
+
+        val ix =  w * point.x + y * point.z - z * point.y
+        val iy =  w * point.y + z * point.x - x * point.z
+        val iz =  w * point.z + x * point.y - y * point.x
+        val iw = -x * point.x - y * point.y - z * point.z
+
+        return Float3(
+            ix * w + iw * -x + iy * -z - iz * -y,
+            iy * w + iw * -y + iz * -x - ix * -z,
+            iz * w + iw * -z + ix * -y - iy * -x
+        )
+    }
+
+    private fun multiply(a: Quaternion, b: Quaternion): Quaternion =
+        Quaternion(
+            a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+            a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+            a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+            a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z
+        )
+
+    private fun normalizedLerp(from: Quaternion, to: Quaternion, fraction: Float): Quaternion {
+        val adjustedTo = if (dot(from, to) < 0f) {
+            Quaternion(-to.x, -to.y, -to.z, -to.w)
+        } else {
+            to
+        }
+        val x = from.x + (adjustedTo.x - from.x) * fraction
+        val y = from.y + (adjustedTo.y - from.y) * fraction
+        val z = from.z + (adjustedTo.z - from.z) * fraction
+        val w = from.w + (adjustedTo.w - from.w) * fraction
+        val len = kotlin.math.sqrt(x * x + y * y + z * z + w * w).coerceAtLeast(1e-6f)
+        return Quaternion(x / len, y / len, z / len, w / len)
+    }
+
+    private fun dot(a: Quaternion, b: Quaternion): Float =
+        a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w
+
+    private data class AnimatedSticker(
+        val node: CubeNode,
+        val startPosition: Float3,
+        val startQuaternion: Quaternion
+    )
+
+    private data class StickerVector(val x: Int, val y: Int, val z: Int)
 }

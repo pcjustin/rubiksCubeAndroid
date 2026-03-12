@@ -23,6 +23,9 @@ class MainActivity : AppCompatActivity() {
     private val cubeScene = RubiksCubeScene(cubeState)
 
     private var selectedColor: StickerColor = StickerColor.WHITE
+    private var solutionMoves: List<String> = emptyList()
+    private var currentStepIndex: Int = 0
+    private var isAnimatingStep: Boolean = false
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -36,6 +39,7 @@ class MainActivity : AppCompatActivity() {
 
         setupColorButtons()
         setupSolveButton()
+        setupStepButtons()
         setupScene()
     }
 
@@ -47,6 +51,7 @@ class MainActivity : AppCompatActivity() {
 
             binding.sceneView.setOnGestureListener(
                 onSingleTapConfirmed = { _, node ->
+                    if (isAnimatingStep) return@setOnGestureListener
                     node?.let { tapped ->
                         val idx = cubeScene.stickerNodeMap[tapped]
                         if (idx != null) {
@@ -95,8 +100,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupSolveButton() {
         binding.btnSolve.setOnClickListener {
+            if (isAnimatingStep) return@setOnClickListener
             startSolving()
         }
+    }
+
+    private fun setupStepButtons() {
+        binding.btnPrevStep.setOnClickListener { stepBackward() }
+        binding.btnNextStep.setOnClickListener { stepForward() }
+        refreshStepControls()
     }
 
     private fun startSolving() {
@@ -125,12 +137,60 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSolution(moves: String, count: Int) {
+        solutionMoves = moves.split(Regex("\\s+")).filter { it.isNotBlank() }
+        currentStepIndex = 0
         binding.tvSolution.text = "（$count 步）$moves"
         binding.solutionScroll.visibility = View.VISIBLE
+        binding.stepControls.visibility = View.VISIBLE
+        refreshStepControls()
     }
 
     private fun hideSolution() {
+        solutionMoves = emptyList()
+        currentStepIndex = 0
+        isAnimatingStep = false
         binding.solutionScroll.visibility = View.GONE
+        binding.stepControls.visibility = View.GONE
+        refreshStepControls()
+    }
+
+    private fun stepForward() {
+        if (isAnimatingStep || currentStepIndex >= solutionMoves.size) return
+        val move = solutionMoves[currentStepIndex]
+        runStep(move) {
+            currentStepIndex += 1
+            refreshStepControls()
+        }
+    }
+
+    private fun stepBackward() {
+        if (isAnimatingStep || currentStepIndex <= 0) return
+        val move = RubiksCubeState.inverseMove(solutionMoves[currentStepIndex - 1])
+        runStep(move) {
+            currentStepIndex -= 1
+            refreshStepControls()
+        }
+    }
+
+    private fun runStep(move: String, onFinished: () -> Unit) {
+        isAnimatingStep = true
+        refreshStepControls()
+        cubeScene.animateMove(binding.sceneView, move) {
+            isAnimatingStep = false
+            onFinished()
+        }
+    }
+
+    private fun refreshStepControls() {
+        binding.btnPrevStep.isEnabled = !isAnimatingStep && currentStepIndex > 0
+        binding.btnNextStep.isEnabled = !isAnimatingStep && currentStepIndex < solutionMoves.size
+        val currentMove = solutionMoves.getOrNull(currentStepIndex)
+        binding.tvStepIndicator.text = if (solutionMoves.isEmpty()) {
+            "步驟 0 / 0"
+        } else {
+            "步驟 $currentStepIndex / ${solutionMoves.size}" +
+                if (currentMove != null) "  ·  下一步 $currentMove" else "  ·  已完成"
+        }
     }
 
     private fun updateStatus(text: String) {
