@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1A1A2E">
+
+    <!-- 3D SceneView fills the screen above the color palette -->
+    <io.github.sceneview.SceneView
+        android:id="@+id/sceneView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/colorPanel"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Color selection panel at the bottom -->
+    <LinearLayout
+        android:id="@+id/colorPanel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#2D2D44"
+        android:paddingTop="8dp"
+        android:paddingBottom="12dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Instruction label -->
+        <TextView
+            android:id="@+id/tvInstruction"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="選擇顏色後點擊魔方面"
+            android:textColor="#CCCCCC"
+            android:textSize="12sp"
+            android:gravity="center"
+            android:paddingBottom="6dp" />
+
+        <!-- Color buttons row -->
+        <LinearLayout
+            android:id="@+id/colorButtonRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
+
+            <!-- White -->
+            <FrameLayout
+                android:id="@+id/btnWhite"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_button_white"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <!-- Yellow -->
+            <FrameLayout
+                android:id="@+id/btnYellow"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_button_yellow"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <!-- Red -->
+            <FrameLayout
+                android:id="@+id/btnRed"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_button_red"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <!-- Orange -->
+            <FrameLayout
+                android:id="@+id/btnOrange"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_button_orange"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <!-- Blue -->
+            <FrameLayout
+                android:id="@+id/btnBlue"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_button_blue"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <!-- Green -->
+            <FrameLayout
+                android:id="@+id/btnGreen"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_button_green"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <!-- Gray (unset) -->
+            <FrameLayout
+                android:id="@+id/btnGray"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_button_gray"
+                android:clickable="true"
+                android:focusable="true" />
+
+        </LinearLayout>
+
+        <!-- Selected color indicator -->
+        <TextView
+            android:id="@+id/tvSelectedColor"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="已選: 白色"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:gravity="center"
+            android:paddingTop="4dp" />
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
