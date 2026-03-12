@@ -66,8 +66,13 @@ class RubiksCubeScene(private val cubeState: RubiksCubeState) {
         val materialLoader = sceneView.materialLoader
 
         // Pre-create one MaterialInstance per StickerColor
+        // Use high roughness to reduce specular reflection and make colors uniform
         for (sc in StickerColor.entries) {
-            colorMaterials[sc] = materialLoader.createColorInstance(sc.androidColor)
+            colorMaterials[sc] = materialLoader.createColorInstance(
+                sc.androidColor,
+                metallic = 0.0f,
+                roughness = 0.9f
+            )
         }
         val blackMat = materialLoader.createColorInstance(Color.parseColor("#111111"))
 
@@ -220,10 +225,11 @@ class RubiksCubeScene(private val cubeState: RubiksCubeState) {
     private fun setupCamera(sceneView: SceneView) {
         // Replace the default (far-away) camera with one close to the small cube.
         // viewport() must match the current view size so orbit gestures scale correctly.
+        // Use symmetric position for more uniform lighting on all faces
         sceneView.cameraManipulator = Manipulator.Builder()
             .targetPosition(0f, 0f, 0f)
             .viewport(maxOf(sceneView.width, 1), maxOf(sceneView.height, 1))
-            .orbitHomePosition(0.65f, 0.50f, 0.85f)
+            .orbitHomePosition(0.60f, 0.60f, 0.60f)
             .zoomSpeed(0f)
             .build(Manipulator.Mode.ORBIT)
     }
