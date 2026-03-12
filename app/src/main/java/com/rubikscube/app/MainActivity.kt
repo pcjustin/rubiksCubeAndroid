@@ -1,17 +1,19 @@
 package com.rubikscube.app
 
 import android.os.Bundle
+import android.view.View
 import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import com.rubikscube.app.databinding.ActivityMainBinding
 
 /**
- * Main Activity: hosts the SceneView and the color-selection palette.
+ * Main Activity.
  *
  * Interaction:
- *   • Drag on the 3D view → orbit the camera around the cube
- *   • Tap a color button  → select that color
- *   • Tap a sticker       → paint it with the selected color
+ *   • Drag 3D view  → orbit camera
+ *   • Tap color btn → select color
+ *   • Tap sticker   → paint with selected color
+ *   • Tap 求解      → run min2phase solver on background thread
  */
 class MainActivity : AppCompatActivity() {
 
@@ -29,24 +31,30 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Initialize min2phase tables in the background (~200 ms)
+        Thread { RubiksSolver.init() }.start()
+
         setupColorButtons()
+        setupSolveButton()
         setupScene()
     }
 
-    // ── Scene setup ───────────────────────────────────────────────────────────
+    // ── 3D scene ──────────────────────────────────────────────────────────────
 
     private fun setupScene() {
-        // SceneView is a SurfaceView; wait for it to be attached before building geometry
         binding.sceneView.post {
             cubeScene.setup(binding.sceneView)
 
-            // Handle single-tap: color the tapped sticker
             binding.sceneView.setOnGestureListener(
                 onSingleTapConfirmed = { _, node ->
                     node?.let { tapped ->
                         val idx = cubeScene.stickerNodeMap[tapped]
                         if (idx != null) {
-                            cubeScene.updateStickerColor(idx, selectedColor, binding.sceneView.engine)
+                            cubeScene.updateStickerColor(
+                                idx, selectedColor, binding.sceneView.engine
+                            )
+                            // Clear previous solution whenever cube changes
+                            hideSolution()
                         }
                     }
                 }
@@ -72,16 +80,60 @@ class MainActivity : AppCompatActivity() {
         for ((button, color) in colorButtons) {
             button.setOnClickListener { selectColor(color) }
         }
-        // Default selection
         selectColor(StickerColor.WHITE)
     }
 
     private fun selectColor(color: StickerColor) {
         selectedColor = color
-        // Update visual selection state on buttons
         for ((button, btnColor) in colorButtons) {
             button.isSelected = (btnColor == color)
         }
-        binding.tvSelectedColor.text = "已選: ${color.displayName}"
+        updateStatus("已選: ${color.displayName}")
+    }
+
+    // ── Solve ─────────────────────────────────────────────────────────────────
+
+    private fun setupSolveButton() {
+        binding.btnSolve.setOnClickListener {
+            startSolving()
+        }
+    }
+
+    private fun startSolving() {
+        binding.btnSolve.isEnabled = false
+        updateStatus("求解中…")
+        hideSolution()
+
+        Thread {
+            val result = RubiksSolver.solve(cubeState)
+            runOnUiThread {
+                binding.btnSolve.isEnabled = true
+                when (result) {
+                    is RubiksSolver.Result.Success -> {
+                        showSolution(result.moves, result.count)
+                        updateStatus("已選: ${selectedColor.displayName}  ─  共 ${result.count} 步")
+                    }
+                    is RubiksSolver.Result.Invalid -> {
+                        updateStatus("⚠ ${result.reason}")
+                    }
+                    RubiksSolver.Result.NotReady -> {
+                        updateStatus("⚠ 求解器初始化中，請稍後再試")
+                    }
+                }
+            }
+        }.start()
+    }
+
+    private fun showSolution(moves: String, count: Int) {
+        binding.tvSolution.text = "（$count 步）$moves"
+        binding.solutionScroll.visibility = View.VISIBLE
+    }
+
+    private fun hideSolution() {
+        binding.solutionScroll.visibility = View.GONE
+    }
+
+    private fun updateStatus(text: String) {
+        binding.tvStatus.text = text
     }
 }
