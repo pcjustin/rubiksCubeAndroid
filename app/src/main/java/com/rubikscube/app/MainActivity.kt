@@ -1,7 +1,6 @@
 package com.rubikscube.app
 
 import android.os.Bundle
-import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
@@ -65,16 +64,6 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             )
-
-            // Intercept touch events to prevent zoom
-            binding.sceneView.setOnTouchListener { _, event ->
-                // Only allow single-finger drag for rotation, prevent multi-finger zoom
-                if (event.pointerCount > 1) {
-                    // Block multi-finger gestures (pinch zoom)
-                    return@setOnTouchListener true
-                }
-                false  // Let single-finger events pass through normally
-            }
         }
     }
 
